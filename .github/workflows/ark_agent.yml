@@ -16,6 +16,13 @@
 #   ANTHROPIC_API_KEY       - Anthropic API key for Claude Code
 #   AGENT_GITHUB_TOKEN      - PAT for a bot user (optional, for custom identity)
 #                             Falls back to GITHUB_TOKEN if not set.
+#
+# Usage:
+#   Comment "@ark" on any issue or PR to trigger the agent.
+#   Add the "ark-agent" label to an issue to trigger it.
+#   Or dispatch manually:
+#     gh workflow run ark_agent.yml -f prompt="fix issue #123"
+#     gh workflow run ark_agent.yml -f prompt="triage all unlabeled issues"
 
 name: Ark Agent
 
@@ -31,7 +38,7 @@ on:
   workflow_dispatch:
     inputs:
       prompt:
-        description: "Prompt to send to Claude Code"
+        description: "Prompt to send to Claude Code (e.g. 'fix issue #123')"
         required: true
         type: string
 
@@ -97,11 +104,12 @@ jobs:
             echo "Trigger phrase '$TRIGGER_PHRASE' not found, skipping"
           fi
 
+      # Full clone needed — the upstream entrypoint fetches PR branches for diffs
       - name: Checkout repository
         if: steps.check.outputs.run == 'true'
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
           token: ${{ secrets.AGENT_GITHUB_TOKEN || github.token }}
 
       - name: Setup Node.js
@@ -147,3 +155,4 @@ jobs:
           INPUT_PROMPT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.prompt || '' }}
           GITHUB_ACTION_PATH: /tmp/claude-code-action
         run: cd /tmp/claude-code-action && bun run src/entrypoints/run.ts
+
